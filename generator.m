@@ -1,8 +1,12 @@
 clear all;
 
-users_num = 10;
+users_num = 50;
 locations_num = 10;
-trasactions_num = 10;
+trasactions_num = 100;
+
+%users_num = 5;
+%locations_num = 10;
+%trasactions_num = 20;
 
 % Merchant types
 merchants = {
@@ -81,6 +85,10 @@ Mesta = cell2table(mesta, 'VariableNames', mesta_varNames);
 
 Merchants_Types = join(Merchants,Merchant_types,"Keys","merchant_type_id");
 
+
+
+disp('start generateing locations')
+
 %Cartesian product
 [ii,jj] = meshgrid(1:height(Merchants_Types),1:height(Mesta));
 Locations =  [Merchants_Types(ii,:) Mesta(jj,:)];
@@ -110,13 +118,11 @@ end
 
 
 
-
-
-
 transactions_num_all = users_num * locations_num * trasactions_num;
 
 transactions=cell(transactions_num_all,14);
 
+%transactions_t = cell(transactions_num_all,10)
 transactions_t = {0,0,0,0,0,0,0,0,0,0};
 
 
@@ -126,18 +132,33 @@ transactions_varNames = {'transaction_id' 'user_id' 'amount' 'location_id' 'date
 Transactions = cell2table(transactions_t, 'VariableNames', transactions_varNames);
 
 
+
+
 %typical users
 %merchants 8, tipi kartice 3, časi 6, medij, velikost, država
 users_types = {
   %nakupovalec na netu,popoldne, slovenija
-  [0.1,0.11,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.1,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Slovenija' 
+  [0.1,0.37,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.17,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Slovenija' 
   %nakupovalec na netu, popoldne, egipt
-  [0.1,0.11,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.1,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Egipt'
+  [0.1,0.37,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.17,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Egipt'
   %nakupovalec na netu, popoldne, indija
-  [0.1,0.11,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.1,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Indija'   
+  [0.1,0.37,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.17,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Indija'   
 };
 
+%check probabilities
+% Initialize a new cell array to store the sums
+sumCellArray = cell(size(users_types));
+
+% Loop over each cell and calculate the sum
+for i = 1:size(users_types,1)
+        for j = 1:size(users_types,2)
+            sumCellArray{i,j} = sum(users_types{i,j});
+        end 
+end
+
 user_weights_varNames = {'merchant_type' 'payment_type' 'shopping_hours', 'payment_method', 'amaunt', 'country'};
+
+Transactions_User_models = cell2table(cell(1,7), 'VariableNames', {'transaction_id', 'merchant_type' 'payment_type' 'shopping_hours', 'payment_method', 'amaunt', 'country'});
 
 UserWeights = cell2table(users_types, 'VariableNames', user_weights_varNames);
 
@@ -149,21 +170,20 @@ s = RandStream('mlfg6331_64','Seed', 420 );
 %for time to unix
 format longG
 
+disp('start generateing')
 
 %users
 for i = 1:height(User)
     %chose random type of user
     user = UserWeights(randi([1,size(users_types,1)]),:);
 
-
-
     merchant_type_ids = datasample(s, unique(Merchant_types.merchant_type_id)  , locations_num ,'Weights',user.merchant_type);
     
     %locations
         for j = 1:locations_num
-            locations_in_country_and_type =  Locations(Locations.merchant_type_id == merchant_type_ids(j) & strcmp(Locations.country, user.country) , :);
-            
-            %locations
+                locations_in_country_and_type =  Locations(Locations.merchant_type_id == merchant_type_ids(j) & strcmp(Locations.country, user.country) , :);
+                
+                %locations
 
                 transaction_sizes = datasample(s, [1,2,3]  , trasactions_num ,'Weights',user.amaunt);
 
@@ -221,107 +241,246 @@ for i = 1:height(User)
                     %'transaction_id' 'user_id' 'amount' 'location_id' 'date' 'time_since_last_here' 'merchant_frequency' 'fraudulent'
                     
                     Transactions = [Transactions; {index,i,transaction_size,rand_location.location_id, time_temp, 0,0, transaction_payment_type, transaction_payment_method 0}];
+                    
+                    Transactions_User_models{index,:} = [{index} table2cell(user)];
 
                     index = index + 1;
                 end
-        end
-       disp(index)
-end
 
+            disp(index)
+        end
+end
+%%
 Transactions(1,:) = [];
 
 %Make me some frauds
-%Nakupi v drugi državi 0.5%
-number_of_fraudsters = floor(height(Transactions) * 0.005);
-if number_of_fraudsters > 0
-    indices = randi([1, height(Transactions)], number_of_fraudsters, 1);
-    
-    samples = Transactions(indices, :);
-    samples.fraudulent = ones(number_of_fraudsters, 1); % Update this line
-
-    for i = 1:number_of_fraudsters % Correct the loop condition
-        current_location_location_id = samples.location_id(i); % Correct indexing
-        current_location = Locations(Locations.location_id == current_location_location_id, :);
-        
-        found_valid_location = false; % Initialize flag
-        
-        for j = 1:100 % Loop to try random locations
-            try_me = randi([1, height(Locations)]);
-            try_me_location = Locations(try_me, :);
-            
-            if try_me_location.country_id ~= current_location.country_id
-                samples.location_id(i) = try_me_location.location_id; % Update the location
-                found_valid_location = true; % Set flag to true
-                break; % Exit the loop once a valid location is found
-            end
-        end
-        
-        if ~found_valid_location % If no valid location found, display a message
-            disp('Warning: Could not find a valid location outside the country.');
-        end
-    end
-    
-    % Save the updated samples back to Transactions
-    Transactions(indices, :) = samples;
-end
-
-
-%%
-%order the Transactions
-disp('wait for sorting please')
-Transactions  = sortrows(Transactions , 'date');
-disp('omg done')
-%%
-Temp_Transactions = join(Transactions,Locations,"Keys","location_id");
-%calculate last time here
-disp('wait for additional calculations')
-
-all_user_ids = Temp_Transactions.user_id;
-all_locations = Temp_Transactions.location_id;
-all_merchants = Temp_Transactions.merchant_type_id;
-
-frequencies = zeros(size(Transactions, 1), 1);
-for i = 1:size(Transactions, 1)
-    previous_indices = find(all_user_ids(1:i-1) == all_user_ids(i));
-    if ~isempty(previous_indices)
-        previous_merchants = all_merchants(previous_indices);
-        frequencies(i) = sum(previous_merchants == all_merchants(i)) / numel(previous_merchants);
-    end
-end
-Transactions(:, 'merchant_frequency') = num2cell(frequencies);
-
-% for n = 1:height(Transactions)
+% %Nakupi v drugi državi 0.5%
+% number_of_fraudsters = floor(height(Transactions) * 0.005);
+% if number_of_fraudsters > 0
+%     indices = randi([1, height(Transactions)], number_of_fraudsters, 1);
 % 
-%     %find user Transactions
-%     user_indexes = cell2mat(Transactions(1:n, 2));
+%     samples = Transactions(indices, :);
+%     samples.fraudulent = ones(number_of_fraudsters, 1); % Update this line
 % 
-%     matching_user_indexes = find(user_indexes(1:n-1) == cell2mat(Transactions(n,2)));
+%     for i = 1:number_of_fraudsters % Correct the loop condition
+%         current_location_location_id = samples.location_id(i); % Correct indexing
+%         current_location = Locations(Locations.location_id == current_location_location_id, :);
 % 
-%     userTransactions_before = Transactions(matching_user_indexes,:);
-%     userTransaction_current = cell2mat(Transactions(n,:));
+%         found_valid_location = false; % Initialize flag
 % 
-%     if ~isempty(userTransactions_before)
+%         for j = 1:100 % Loop to try random locations
+%             try_me = randi([1, height(Locations)]);
+%             try_me_location = Locations(try_me, :);
 % 
-%         location_indexes = cell2mat(userTransactions_before(:, 4));
-%         matchingIndices = find(location_indexes == userTransaction_current(4));
+%             if try_me_location.country_id ~= current_location.country_id
+%                 samples.location_id(i) = try_me_location.location_id; % Update the location
+%                 found_valid_location = true; % Set flag to true
+%                 break; % Exit the loop once a valid location is found
+%             end
+%         end
 % 
-%         merchant_indexes = cell2mat(userTransactions_before(:, 5));
-%         merchant_index_current = userTransaction_current(5);
-%         frequency = (sum(merchant_indexes(:)==merchant_index_current))/height(merchant_indexes);
-%         Transactions{n,8} = frequency;
+%         if ~found_valid_location % If no valid location found, display a message
+%             disp('Warning: Could not find a valid location outside the country.');
+%         end
 %     end
+% 
+%     % Save the updated samples back to Transactions
+%     Transactions(indices, :) = samples;
+% end
+% 
+% %Nenavadne naprave 0.5%
+% number_of_fraudsters = floor(height(Transactions) * 0.005);
+% if number_of_fraudsters > 0
+%     indices = randi([1, height(Transactions)], number_of_fraudsters, 1);
+% 
+%     samples = Transactions(indices, :);
+%     samples.fraudulent = ones(number_of_fraudsters, 1); 
+% 
+%     for i = 1:number_of_fraudsters 
+%         %get all previous 
+%         previous_user_transactions = Transactions(Transactions.user_id == samples.user_id(i),:);
+%         [cnt, gr] = groupcounts(previous_user_transactions.TransactionDevice);
+%         least_likley_td = cnt(find(gr == min(gr),1));
+%         samples.user_id(i) = least_likley_td;
+%     end
+% 
+%     % Save the updated samples back to Transactions
+%     Transactions(indices, :) = samples;
+% end
+% 
+% Temp_Transactions = join(Transactions,Locations,"Keys","location_id");
+% 
+% %Nenavadne merchanti 0.5%
+% number_of_fraudsters = floor(height(Transactions) * 0.005);
+% if number_of_fraudsters > 0
+%     indices = randi([1, height(Transactions)], number_of_fraudsters, 1);
+% 
+%     samples = Transactions(indices, :);
+%     samples_temp = Temp_Transactions(indices, :);
+%     samples.fraudulent = ones(number_of_fraudsters, 1); 
+% 
+%     for i = 1:number_of_fraudsters 
+%         %get all previous 
+%         previous_user_transactions = Temp_Transactions(Temp_Transactions.merchant_type_id == samples_temp.merchant_type_id(i),:);
+%         [cnt, gr] = groupcounts(previous_user_transactions.merchant_type_id);
+%         samples.location_id(i) = samples.location_id(find(gr == min(gr),1));
+%     end
+% 
+%     % Save the updated samples back to Transactions
+%     Transactions(indices, :) = samples;
+% end
+% 
+% %Nenavadne velikosti 0.5%
+% number_of_fraudsters = floor(height(Transactions) * 0.005);
+% if number_of_fraudsters > 0
+%     indices = randi([1, height(Transactions)], number_of_fraudsters, 1);
+% 
+%     samples = Transactions(indices, :);
+%     samples.fraudulent = ones(number_of_fraudsters, 1); 
+% 
+%     for i = 1:number_of_fraudsters 
+%         %get all previous 
+%         previous_user_transactions = Transactions(Transactions.amount == samples.amount(i),:);
+%         [cnt, gr] = groupcounts(previous_user_transactions.amount);
+%         least_likley_td = cnt(find(gr == min(gr),1));
+%         samples.amount(i) = least_likley_td+randi([1,10]);
+%     end
+% 
+%     % Save the updated samples back to Transactions
+%     Transactions(indices, :) = samples;
+% end
+% 
+% 
+% 
+% 
+% %order the Transactions
+% disp('wait for sorting please')
+% Transactions  = sortrows(Transactions , 'date');
+% disp('omg done')
+% 
+% 
+% %Majhne zaporedne 1%
+% number_of_fraudsters = floor(height(Transactions) * 0.005);
+% if number_of_fraudsters > 0
+%     indices = randi([1, height(Transactions)], number_of_fraudsters, 1);
+% 
+%     samples = Transactions(indices, :);
+%     samples.fraudulent = ones(number_of_fraudsters, 1); 
+% 
+%     for i = 1:number_of_fraudsters 
+% 
+%         number = randi([1,5]);
+%         fr = samples(i,:);
+% 
+%         for j =2:number+1
+%             if(size(samples,1)>= j)
+%                 fr.date = fr.date + randi([60000,600000]);
+%                 samples(j,:) = fr;
+%             end
+%         end
+%     end
+% 
+%     % Save the updated samples back to Transactions
+%     Transactions(indices, :) = samples;
 % end
 
+
+AllTransactions = table();
+%za vsakega userja
+transakcije_na_userja = floor(locations_num*trasactions_num);
+
+for i = 1:users_num
+    User_Transactions = Transactions(Transactions.user_id == i,:);
+    User_Transactions  = sortrows(User_Transactions , 'date', 'descend');
+    for j = 1:10:transakcije_na_userja
+        if j+10 > height(User_Transactions)
+            break
+        end
+        Frame_Transactions = User_Transactions(j:j+9,:);
+
+        choose_fraud = randi([1,3]);
+        if(i > size(Frame_Transactions,2))
+            break
+        end
+        t_id = Frame_Transactions(i,:).transaction_id;
+        aaa = find([Transactions_User_models.transaction_id{:}] == t_id);
+        user_model = Transactions_User_models(aaa,:);
+
+        if choose_fraud == 1
+            
+        end
+
+        if choose_fraud == 2
+            for k = 1:3
+                in = randi([2,10]);
+                temp = makeFraudulent(Frame_Transactions(in,:),Locations,user_model);
+                Frame_Transactions(in,:) = temp;
+            end
+            Frame_Transactions(1,:) = makeFraudulent(Frame_Transactions(1,:),Locations,user_model);
+        end
+        
+        if choose_fraud == 3
+            for k = 1:3
+                in = randi([2,10]);
+                temp = makeFraudulent(Frame_Transactions(in,:),Locations,user_model);
+                Frame_Transactions(in,:) = temp;
+            end
+        end
+
+        if choose_fraud == 4
+            num = randi([2,5],1);
+            first_t = Frame_Transactions(1,:);
+            for k = 2:num
+                tem_t = Frame_Transactions(k,:);
+                temp_t.location = first_t.location;
+                temp_t.amount = first_t.amount;
+                temp_t.date = first_t.date + randi([60,120]);
+                temp_t.fraudulent = 1;
+                Frame_Transactions(k,:) = Frame_Transactions(k,:);
+            end
+        end
+
+        AllTransactions = vertcat(AllTransactions,Frame_Transactions);
+    end
+end
+
+
+%order the Transactions
+disp('wait for sorting please')
+Transactions  = sortrows(AllTransactions , 'date', 'descend');
 disp('omg done')
 
-%%
+
+
+%calculate last time here
+% disp('wait for additional calculations')
+% 
+% all_user_ids = Temp_Transactions.user_id;
+% all_locations = Temp_Transactions.location_id;
+% all_merchants = Temp_Transactions.merchant_type_id;
+% 
+% frequencies = zeros(size(Transactions, 1), 1);
+% for i = 1:size(Transactions, 1)
+%     previous_indices = find(all_user_ids(1:i-1) == all_user_ids(i));
+%     if ~isempty(previous_indices)
+%         previous_merchants = all_merchants(previous_indices);
+%         frequencies(i) = sum(previous_merchants == all_merchants(i)) / numel(previous_merchants);
+%     end
+% end
+% Transactions(:, 'merchant_frequency') = num2cell(frequencies);
+% 
+% 
+% 
+% disp('omg done')
+
+
 
 
 for i = 1:height(Transactions)
     Transactions.merchant_frequency = num2str(Transactions.merchant_frequency);
 end
 
-%%
+
 %"TransactionId", "UserId", "Amount", "LocationId", "DateTime", "TimeSince", "MerchantFreq", "MerchantType", "TransactionDevice"
 
 writetable(Transactions,'transactions.csv')
@@ -329,7 +488,7 @@ writetable(User,'users.csv')
 writetable(Mesta,'mesta.csv')
 writetable(Locations,'locations.csv')
 
-%%
+
 
 
 % Define the columns you want to include in Transactions_2
