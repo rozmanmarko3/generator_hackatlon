@@ -117,10 +117,10 @@ transactions_num_all = users_num * locations_num * trasactions_num;
 
 transactions=cell(transactions_num_all,14);
 
-transactions_t = {0,0,0,0,0,0,0,0};
+transactions_t = {0,0,0,0,0,0,0,0,0,0};
 
 
-transactions_varNames = {'transaction_id' 'user_id' 'amount' 'location_id' 'date' 'time_since_last_here' 'merchant_frequency' 'fraudulent'};
+transactions_varNames = {'transaction_id' 'user_id' 'amount' 'location_id' 'date' 'time_since_last_here' 'merchant_frequency' 'TransactionType' 'TransactionDevice' 'fraudulent'};
 
 
 Transactions = cell2table(transactions_t, 'VariableNames', transactions_varNames);
@@ -137,6 +137,9 @@ users_types = {
   [0.1,0.11,0.03,0.1,0.1,0.1,0.1,0.1],[0.98, 0.01, 0.01],[0.01,0.01,0.01,0.1,0.7,0.1] ,[0.5,0.45,0.05],[0.2,0.5,0.3],'Indija'   
 };
 
+user_weights_varNames = {'merchant_type' 'payment_type' 'shopping_hours', 'payment_method', 'amaunt', 'country'};
+
+UserWeights = cell2table(users_types, 'VariableNames', user_weights_varNames);
 
 index = 1;
 
@@ -150,22 +153,26 @@ format longG
 %users
 for i = 1:height(User)
     %chose random type of user
-    user = users_types(randi([1,size(users_types,1)]),:);
+    user = UserWeights(randi([1,size(users_types,1)]),:);
 
-    merchant_type_ids = datasample(s, Merchant_types.merchant_type_id  , locations_num ,'Weights',user{1});
+
+
+    merchant_type_ids = datasample(s, unique(Merchant_types.merchant_type_id)  , locations_num ,'Weights',user.merchant_type);
     
     %locations
         for j = 1:locations_num
-            locations_in_country_and_type =  Locations(Locations.merchant_type_id == merchant_type_ids(j) & strcmp(Locations.country, user{6}) , :);
+            locations_in_country_and_type =  Locations(Locations.merchant_type_id == merchant_type_ids(j) & strcmp(Locations.country, user.country) , :);
             
             %locations
 
-                transaction_sizes = datasample(s, [1,2,3]  , trasactions_num ,'Weights',user{5});
+                transaction_sizes = datasample(s, [1,2,3]  , trasactions_num ,'Weights',user.amaunt);
 
-                transaction_times = datasample(s, [1,2,3,4,5,6]  , trasactions_num ,'Weights',user{3});
+                transaction_times = datasample(s, [1,2,3,4,5,6]  , trasactions_num ,'Weights',user.shopping_hours);
                 
-                transaction_times = datasample(s, [1,2,3,4,5,6]  , trasactions_num ,'Weights',user{3});
-                
+                transaction_payment_methods = datasample(s, [1,2,3]  , trasactions_num ,'Weights',user.payment_method);
+
+                transaction_payment_types = datasample(s, [1,2,3]  , trasactions_num ,'Weights',user.payment_type);
+
                 for k = 1:trasactions_num
                     rand_location_index = randi([1,height(locations_in_country_and_type)]);
 
@@ -186,30 +193,34 @@ for i = 1:height(User)
 
                     transaction_time = '';
                     if transaction_times(k) == 1
-                        transaction_time = datetime(['2016-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([0,6])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
+                        transaction_time = datetime(['2024-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([0,6])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
                     end
                     if transaction_times(k) == 2
-                       transaction_time = datetime(['2016-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([6,12])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
+                       transaction_time = datetime(['2024-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([6,12])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
                     end
                     if transaction_times(k) == 3
-                        transaction_time = datetime(['2016-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([12,14])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
+                        transaction_time = datetime(['2024-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([12,14])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
                     end
                      if transaction_times(k) == 4
-                       transaction_time = datetime(['2016-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([14,16])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
+                       transaction_time = datetime(['2024-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([14,16])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
                     end
                     if transaction_times(k) == 5
-                       transaction_time = datetime(['2016-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([16,18])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
+                       transaction_time = datetime(['2024-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([16,18])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
                     end
                     if transaction_times(k) == 6
-                       transaction_time = datetime(['2016-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([18,23])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
+                       transaction_time = datetime(['2024-' num2str(randi([1,12])) '-' num2str(randi([1,28])) ' ' num2str(randi([18,23])) ':' num2str(randi([0,59])) ':' num2str(randi([0,59]))]);
                     end
+
+                    transaction_payment_method = transaction_payment_methods(k);
+
+                    transaction_payment_type = transaction_payment_types(k);
 
                     transaction_time.TimeZone = 'America/New_York';
                     time_temp = posixtime(transaction_time);
 
                     %'transaction_id' 'user_id' 'amount' 'location_id' 'date' 'time_since_last_here' 'merchant_frequency' 'fraudulent'
                     
-                    Transactions = [Transactions; {index,i,transaction_size,rand_location.location_id, time_temp, 0,0,0}];
+                    Transactions = [Transactions; {index,i,transaction_size,rand_location.location_id, time_temp, 0,0, transaction_payment_type, transaction_payment_method 0}];
 
                     index = index + 1;
                 end
@@ -322,8 +333,8 @@ writetable(Locations,'locations.csv')
 
 
 % Define the columns you want to include in Transactions_2
-newColumns =      {  'TransactionId', 'UserId',  'Amount', 'LocationId', 'DateTime', 'TimeSince',          'MerchantFreq',   'Fraudulent'    }; %        'MerchantType', 'TransactionType', 'TransactionDevice'};
-selectedColumns = {  'transaction_id','user_id', 'amount', 'location_id', 'date', 'time_since_last_here', 'merchant_frequency','fraudulent' };
+newColumns =      {  'TransactionId', 'UserId',  'Amount', 'LocationId', 'DateTime', 'TimeSince',          'MerchantFreq', 'TransactionType', 'TransactionDevice',  'Fraudulent'    }; %        'MerchantType', 'TransactionType', 'TransactionDevice'};
+selectedColumns = {  'transaction_id','user_id', 'amount', 'location_id', 'date', 'time_since_last_here', 'merchant_frequency', 'TransactionType', 'TransactionDevice','fraudulent' };
 
 % Create Transactions_2 with only the selected columns
 Transactions_sven = Transactions(:, selectedColumns);
@@ -333,8 +344,6 @@ Transactions_sven.Properties.VariableNames = newColumns;
 Transactions_Locations = join(Transactions,Locations,"Keys","location_id");
 
 Transactions_sven = addvars(Transactions_sven, Transactions_Locations.merchant_type_id, 'NewVariableName', 'MerchantType');
-Transactions_sven =  addvars(Transactions_sven, zeros(height(Transactions_sven), 1), 'NewVariableName', 'TransactionType');
-Transactions_sven =  addvars(Transactions_sven, zeros(height(Transactions_sven), 1), 'NewVariableName', 'TransactionDevice');
 
 
 writetable(Transactions_sven,'transactions_sven.csv')
